@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gemini AI 聊天 (私人中转)</title>
     <style>
-        /* CSS 样式 (与之前版本相同，此处省略以保持简洁) */
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; background-color: #f0f2f5; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
         #api-key-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(5px); transition: opacity 0.3s ease; }
         #api-key-modal { background: white; padding: 30px 40px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center; width: 90%; max-width: 400px; }
@@ -48,82 +47,68 @@
         <div id="chat-box"></div>
         <div id="input-container">
             <textarea id="user-input" placeholder="输入消息..." rows="1"></textarea>
-            <button id="send-btn">发送</button>
+            <button id="send-btn">回答我！</button>
         </div>
     </div>
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            const chatBox = document.getElementById("chat-box");
-            // ... (其他元素获取)
+            // 获取所有 DOM 元素
             const apiKeyOverlay = document.getElementById('api-key-overlay');
             const apiKeyInput = document.getElementById('api-key-input');
             const saveKeyBtn = document.getElementById('save-key-btn');
             const chatContainer = document.getElementById('chat-container');
+            const chatBox = document.getElementById("chat-box");
             const userInput = document.getElementById("user-input");
             const sendBtn = document.getElementById("send-btn");
 
+            // 定义常量和变量
             const API_URL = "https://gateway.ai.cloudflare.com/v1/452ed95357c6a64ce00711d64f4ce307/gemini/google-ai-studio/v1beta/models/gemini-2.0-flash:generateContent";
             let userApiKey = ''; 
             let conversationHistory = [];
 
-            // --- 核心函数：创建消息元素 ---
+            // --- 所有函数都只在这里定义一次 ---
+
             const appendMessage = (sender, text) => {
                 const messageElement = document.createElement("div");
                 messageElement.classList.add("message", sender === "user" ? "user-message" : "ai-message");
-
                 if (sender === 'ai') {
                     const pre = document.createElement('pre');
                     pre.textContent = text;
-                    
-                    // --- 关键修复：拦截复制事件 ---
                     pre.addEventListener('copy', (event) => {
-                        // 阻止浏览器默认的、会破坏制表符的复制行为
                         event.preventDefault(); 
-                        
-                        // 使用剪贴板 API 将最原始、最纯净的文本放入剪贴板
                         navigator.clipboard.writeText(text).then(() => {
-                            // (可选) 提供复制成功的视觉反馈
-                            pre.style.backgroundColor = '#d1e7dd'; // 淡绿色
+                            pre.style.backgroundColor = '#d1e7dd';
                             setTimeout(() => { pre.style.backgroundColor = ''; }, 200);
                         }).catch(err => {
-                            console.error('无法将文本复制到剪贴板: ', err);
+                            console.error('复制失败: ', err);
                         });
                     });
-
                     messageElement.appendChild(pre);
                 } else {
                     messageElement.textContent = text;
                 }
-                
                 chatBox.appendChild(messageElement);
                 chatBox.scrollTop = chatBox.scrollHeight;
                 return messageElement;
             };
-            
-            // --- 其他函数的声明和实现 (代码未变) ---
-            const showLoadingIndicator = () => { /* 实现代码 */ };
-            const hideLoadingIndicator = (element) => { /* 实现代码 */ };
-            const startChat = () => { /* 实现代码 */ };
-            const sendMessage = async () => { /* 实现代码 */ };
 
-            saveKeyBtn.addEventListener('click', startChat);
-            apiKeyInput.addEventListener("keypress", (event) => { if (event.key === "Enter") { event.preventDefault(); startChat(); } });
-            sendBtn.addEventListener("click", sendMessage);
-            userInput.addEventListener("keypress", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(); } });
-            userInput.addEventListener('input', () => { userInput.style.height = 'auto'; userInput.style.height = (userInput.scrollHeight) + 'px'; });
-
-            // --- 函数的完整实现 ---
-            function showLoadingIndicator() {
+            const showLoadingIndicator = () => {
                 const messageElement = document.createElement("div");
                 messageElement.classList.add("message", "ai-message");
                 messageElement.innerHTML = `<div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div>`;
                 chatBox.appendChild(messageElement);
                 chatBox.scrollTop = chatBox.scrollHeight;
                 return messageElement;
-            }
-            function hideLoadingIndicator(element) { if (element && element.parentNode === chatBox) { chatBox.removeChild(element); } }
-            function startChat() {
+            };
+
+            const hideLoadingIndicator = (element) => {
+                if (element && element.parentNode === chatBox) {
+                    chatBox.removeChild(element);
+                }
+            };
+
+            const startChat = () => {
                 const key = apiKeyInput.value.trim();
                 if (key.startsWith("AIzaSy")) {
                     userApiKey = key;
@@ -134,8 +119,9 @@
                 } else {
                     alert('密钥格式似乎不正确。应以 "AIzaSy" 开头。');
                 }
-            }
-            async function sendMessage() {
+            };
+
+            const sendMessage = async () => {
                 const userText = userInput.value.trim();
                 if (userText === "" || !userApiKey) return;
                 appendMessage("user", userText);
@@ -167,7 +153,14 @@
                     hideLoadingIndicator(loadingMessage);
                     appendMessage("ai", `出错了：${error.message}`);
                 }
-            }
+            };
+
+            // --- 事件监听器 ---
+            saveKeyBtn.addEventListener('click', startChat);
+            apiKeyInput.addEventListener("keypress", (event) => { if (event.key === "Enter") { event.preventDefault(); startChat(); } });
+            sendBtn.addEventListener("click", sendMessage);
+            userInput.addEventListener("keypress", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(); } });
+            userInput.addEventListener('input', () => { userInput.style.height = 'auto'; userInput.style.height = (userInput.scrollHeight) + 'px'; });
         });
     </script>
 </body>
