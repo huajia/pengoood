@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini AI 聊天</title>
+    <style>
+        /* CSS 样式 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            background-color: #f0f2f5;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* API 密钥输入弹窗 */
+        #api-key-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+            transition: opacity 0.3s ease;
+        }
+
+        #api-key-modal {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        #api-key-modal h2 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        #api-key-modal p {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+        }
+
+        #api-key-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box; /* 确保 padding 不会影响宽度 */
+            font-size: 1em;
+        }
+        
+        #api-key-input:focus {
+            outline: none;
+            border-color: #6e8efb;
+            box-shadow: 0 0 0 2px rgba(110, 142, 251, 0.2);
+        }
+
+        #save-key-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+        
+        #save-key-btn:hover {
+            opacity: 0.9;
+        }
+        
+        /* 聊天窗口 */
+        #chat-container {
+            width: 95%;
+            max-width: 700px;
+            height: 90vh;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: filter 0.3s ease;
+        }
+        
+        #chat-container.disabled {
+            filter: blur(5px);
+            pointer-events: none;
+        }
+
+        #chat-header {
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            color: white;
+            padding: 15px 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #chat-box {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            padding: 10px 18px;
+            border-radius: 20px;
+            max-width: 85%;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+
+        .ai-message {
+            background-color: #eef0f2;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .ai-message pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-family: inherit;
+            font-size: inherit;
+        }
+        
+        .loading-dot { display: inline-block; width: 8px; height: 8px; background-color: currentColor; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+        .loading-dot:nth-child(3) { animation-delay: -0.32s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
+
+        #input-container { display: flex; padding: 15px; border-top: 1px solid #e0e0e0; background-color: #f9f9f9; }
+        #user-input { flex-grow: 1; padding: 12px 18px; border: 1px solid #ccc; border-radius: 25px; resize: none; font-size: 16px; margin-right: 10px; outline: none; transition: border-color 0.2s; height: 24px; }
+        #user-input:focus { border-color: #6e8efb; }
+        #send-btn { padding: 0 25px; background: linear-gradient(135deg, #6e8efb, #a777e3); color: white; border: none; border-radius: 25px; cursor: pointer; font-size: 16px; font-weight: bold; transition: opacity 0.2s; }
+        #send-btn:hover { opacity: 0.9; }
+    </style>
+</head>
+<body>
+
+    <!-- API 密钥输入弹窗 -->
+    <div id="api-key-overlay">
+        <div id="api-key-modal">
+            <h2>请输入 API 密钥</h2>
+            <p>请在此处粘贴您的 Google AI Studio API 密钥以开始使用。</p>
+            <input type="password" id="api-key-input" placeholder="AIzaSy...">
+            <button id="save-key-btn">开始聊天</button>
+        </div>
+    </div>
+
+    <!-- 主聊天窗口 (默认禁用) -->
+    <div id="chat-container" class="disabled">
+        <div id="chat-header">Gemini 聊天机器人</div>
+        <div id="chat-box"></div>
+        <div id="input-container">
+            <textarea id="user-input" placeholder="输入消息..." rows="1"></textarea>
+            <button id="send-btn">发送</button>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript 逻辑
+        document.addEventListener("DOMContentLoaded", () => {
+            // 获取所有需要的 DOM 元素
+            const apiKeyOverlay = document.getElementById('api-key-overlay');
+            const apiKeyModal = document.getElementById('api-key-modal');
+            const apiKeyInput = document.getElementById('api-key-input');
+            const saveKeyBtn = document.getElementById('save-key-btn');
+            const chatContainer = document.getElementById('chat-container');
+            const chatBox = document.getElementById("chat-box");
+            const userInput = document.getElementById("user-input");
+            const sendBtn = document.getElementById("send-btn");
+            
+            // 定义 API URL，密钥将由用户提供
+            const API_URL = "https://gateway.ai.cloudflare.com/v1/452ed95357c6a64ce00711d64f4ce307/gemini/google-ai-studio/v1beta/models/gemini-2.0-flash:generateContent";
+            let userApiKey = ''; // 用于存储用户输入的密钥
+            let conversationHistory = []; // 存储对话历史以保持上下文
+
+            // --- 密钥处理逻辑 ---
+            const startChat = () => {
+                const key = apiKeyInput.value.trim();
+                if (key.startsWith("AIzaSy")) { // 对密钥进行一个简单的格式检查
+                    userApiKey = key;
+                    apiKeyOverlay.style.opacity = '0'; // 淡出效果
+                    setTimeout(() => {
+                        apiKeyOverlay.style.display = 'none'; // 隐藏弹窗
+                    }, 300);
+                    chatContainer.classList.remove('disabled'); // 激活聊天窗口
+                    userInput.focus(); // 将光标聚焦到输入框
+                } else {
+                    alert('密钥格式似乎不正确。请检查并重新输入。');
+                }
+            };
+            
+            saveKeyBtn.addEventListener('click', startChat);
+            apiKeyInput.addEventListener("keypress", (event) => {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    startChat();
+                }
+            });
+
+            // --- 聊天核心逻辑 ---
+            const sendMessage = async () => {
+                const userText = userInput.value.trim();
+                if (userText === "" || !userApiKey) return;
+
+                appendMessage("user", userText);
+                conversationHistory.push({ role: "user", parts: [{ text: userText }] });
+                userInput.value = "";
+                userInput.style.height = '24px';
+
+                const loadingMessage = showLoadingIndicator();
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-goog-api-key': userApiKey // 使用用户提供的密钥
+                        },
+                        body: JSON.stringify({ "contents": conversationHistory })
+                    });
+                    
+                    hideLoadingIndicator(loadingMessage);
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error.message || `API 请求失败，状态码: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    if (data.candidates && data.candidates.length > 0) {
+                        const aiText = data.candidates[0].content.parts[0].text;
+                        appendMessage("ai", aiText);
+                        conversationHistory.push({ role: "model", parts: [{ text: aiText }] });
+                    } else {
+                        appendMessage("ai", "抱歉，AI 未能返回有效的回复。");
+                    }
+                } catch (error) {
+                    console.error("发生错误:", error);
+                    hideLoadingIndicator(loadingMessage);
+                    appendMessage("ai", `出错了：${error.message}`);
+                }
+            };
+
+            const appendMessage = (sender, text) => { /* ... (此函数未改变) ... */ };
+            const showLoadingIndicator = () => { /* ... (此函数未改变) ... */ };
+            const hideLoadingIndicator = (element) => { /* ... (此函数未改变) ... */ };
+            
+            // --- 事件监听器 ---
+            sendBtn.addEventListener("click", sendMessage);
+            userInput.addEventListener("keypress", (event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    sendMessage();
+                }
+            });
+            userInput.addEventListener('input', () => { userInput.style.height = 'auto'; userInput.style.height = (userInput.scrollHeight) + 'px'; });
+
+            // --- 辅助函数的具体实现 ---
+            function appendMessage(sender, text) {
+                const messageElement = document.createElement("div");
+                messageElement.classList.add("message", sender === "user" ? "user-message" : "ai-message");
+                if (sender === 'ai') {
+                    const pre = document.createElement('pre');
+                    pre.textContent = text;
+                    messageElement.appendChild(pre);
+                } else {
+                    messageElement.textContent = text;
+                }
+                chatBox.appendChild(messageElement);
+                chatBox.scrollTop = chatBox.scrollHeight;
+                return messageElement;
+            }
+
+            function showLoadingIndicator() {
+                const messageElement = document.createElement("div");
+                messageElement.classList.add("message", "ai-message");
+                messageElement.innerHTML = `<div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div>`;
+                chatBox.appendChild(messageElement);
+                chatBox.scrollTop = chatBox.scrollHeight;
+                return messageElement;
+            }
+
+            function hideLoadingIndicator(element) {
+                if (element && element.parentNode === chatBox) {
+                    chatBox.removeChild(element);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
